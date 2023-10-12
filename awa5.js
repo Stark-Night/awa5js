@@ -26,11 +26,11 @@ const OPCODES = {
     // utility functions
     get: (trace, token) => {
         trace.push('OPCODES.get');
-        const b = (n >>> 0) % 32; // 31 max value in 5 bits signed
+        const b = (token >>> 0) % 32; // 31 max value in 5 bits signed
         trace.pop();
         return b;
     },
-    parameterized: (trace, opcode) {
+    parameterized: (trace, opcode) => {
         trace.push('OPCODES.parameterized');
         let b = false;
 
@@ -51,10 +51,10 @@ const OPCODES = {
         }
 
         trace.pop();
-        const b;
+        return b;
     },
 
-    name: (opcode) {
+    name: (opcode) => {
         let n = `${opcode}`;
 
         switch (opcode) {
@@ -96,7 +96,7 @@ const parser = function (trace, input) {
     const cleaned = input
           .replace(/[^aw~\s]+/gi, '')
           .replace(/[\n\s]+/g, ' ')
-          .toLocaleLowercase();
+          .toLocaleLowerCase();
 
     // find start of block
     let cursor = cleaned.search(/awa\s*/);
@@ -119,7 +119,7 @@ const parser = function (trace, input) {
     while (cursor < cleaned.length - 1) {
         if ('wa' === cleaned.substring(cursor, cursor + 2)) {
             // wa is 1
-            value = << 1;
+            value = value << 1;
             value = value + 1;
             cursor = cursor + 2;
         } else if (' awa' === cleaned.substring(cursor, cursor + 4)) {
@@ -677,7 +677,7 @@ const interpreter = function (trace, abyss, tokens, stdin, stdout) {
     let result = null;
     while (cursor < tokens.length) {
         const code = OPCODES.get(trace, tokens[cursor]);
-        trace.push(OPCODE.name(code));
+        trace.push(OPCODES.name(code));
 
         switch (code) {
         case OPCODES.NOP:
