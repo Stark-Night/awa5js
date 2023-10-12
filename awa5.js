@@ -22,13 +22,14 @@ const OPCODES = {
     GR8: 20,
     EQZ: 21,
     TRM: 31,
-};
 
-const getOpcode = function (trace, v) {
-    trace.push('getOpcode');
-    const b = (n >>> 0) % 32; // 31 max value in 5 bits signed
-    trace.pop();
-    return b;
+    // utility functions
+    get: (trace, token) => {
+        trace.push('OPCODES.get');
+        const b = (n >>> 0) % 32; // 31 max value in 5 bits signed
+        trace.pop();
+        return b;
+    },
 };
 
 const parser = function (trace, input) {
@@ -95,7 +96,7 @@ const parser = function (trace, input) {
                 continue;
             }
 
-            switch (getOpcode(trace, value)) {
+            switch (OPCODES.get(trace, value)) {
             case OPCODES.BLO:
             case OPCODES.SBM:
             case OPCODES.SRN:
