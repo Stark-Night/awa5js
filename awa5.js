@@ -363,6 +363,9 @@ const interpreter = function (trace, abyss, tokens, stdin, stdout) {
         }
     }
 
+    // handle in/out
+    const inout = new InOut(stdin, stdout);
+
     // execute the tokens
     let cursor = 0;
     let result = null;
@@ -374,12 +377,22 @@ const interpreter = function (trace, abyss, tokens, stdin, stdout) {
         case OPCODES.NOP:
             break;
         case OPCODES.PRN:
+            if (0 === abyss.length) {
+                throw new OpcodeError(tokens[cursor], 'not enough bubbles');
+            }
+            result = inout.write(trace, abyss.pop());
             break;
         case OPCODES.PR1:
+            if (0 === abyss.length) {
+                throw new OpcodeError(tokens[cursor], 'not enough bubbles');
+            }
+            result = inout.writeRaw(trace, abyss.pop());
             break;
         case OPCODES.RED:
+            result = inout.read(trace);
             break;
         case OPCODES.R3D:
+            result = inout.readRaw(trace);
             break;
         case OPCODES.BLO:
             break;
@@ -420,6 +433,16 @@ const interpreter = function (trace, abyss, tokens, stdin, stdout) {
         }
 
         trace.pop();
+
+        // push result into the abyss, if any
+        if (null !== result) {
+            try {
+                abyss.push(...result);
+            } catch {
+                abyss.push(result);
+            }
+        }
+
         cursor = cursor + 1;
 
         // stop interpreter on too many ops
