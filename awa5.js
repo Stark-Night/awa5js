@@ -343,6 +343,36 @@ class InOut {
     }
 }
 
+const opSubmerge = function (trace, abyss, input) {
+    trace.push('opSubmerge');
+    const value = abyss.pop();
+
+    if (0 === input) {
+        abyss.unshift(value);
+    } else {
+        // warning: can be slow in some cases
+        abyss.splice(abyss.length - input, 0, value);
+    }
+
+    trace.pop();
+    return null;
+};
+
+const opPop = function (trace, input) {
+    trace.push('opPop');
+    if (false === input.isDouble()) {
+        return null;
+    }
+
+    const bubbles = [];
+    for (let v of input.value()) {
+        bubbles.push(new Bubble(v));
+    }
+
+    trace.pop();
+    return bubbles;
+};
+
 const interpreter = function (trace, abyss, tokens, stdin, stdout) {
     trace.push('interpreter');
 
@@ -395,10 +425,24 @@ const interpreter = function (trace, abyss, tokens, stdin, stdout) {
             result = inout.readRaw(trace);
             break;
         case OPCODES.BLO:
+            if (undefined === tokens[cursor + 1]) {
+                throw new OpcodeError(tokens[cursor], 'not enough arguments');
+            }
+            result = new Bubble(tokens[cursor + 1]);
+            cursor = cursor + 1;
             break;
         case OPCODES.SBM:
+            if (undefined  === tokens[cursor + 1]) {
+                throw new OpcodeError(tokens[cursor], 'not enough arguments');
+            }
+            result = opSubmerge(trace, abyss, tokens[cursor + 1]);
+            cursor = cursor + 1;
             break;
         case OPCODES.POP:
+            if (0 === abyss.length) {
+                throw new OpcodeError(tokens[cursor], 'not enough bubbles');
+            }
+            result = opPop(trace, abyss.pop());
             break;
         case OPCODES.DPL:
             break;
