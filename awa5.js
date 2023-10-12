@@ -53,6 +53,39 @@ const OPCODES = {
         trace.pop();
         const b;
     },
+
+    name: (opcode) {
+        let n = `${opcode}`;
+
+        switch (opcode) {
+        case OPCODES.NOP: return 'NOP';
+        case OPCODES.PRN: return 'PRN';
+        case OPCODES.PR1: return 'PR1';
+        case OPCODES.RED: return 'RED';
+        case OPCODES.R3D: return 'R3D';
+        case OPCODES.BLO: return 'BLO';
+        case OPCODES.SBM: return 'SBM';
+        case OPCODES.POP: return 'POP';
+        case OPCODES.DPL: return 'DPL';
+        case OPCODES.SRN: return 'SRN';
+        case OPCODES.MRG: return 'MRG';
+        case OPCODES.DD4: return '4DD';
+        case OPCODES.SUB: return 'SUB';
+        case OPCODES.MUL: return 'MUL';
+        case OPCODES.DIV: return 'DIV';
+        case OPCODES.CNT: return 'CNT';
+        case OPCODES.LBL: return 'LBL';
+        case OPCODES.JMP: return 'JMP';
+        case OPCODES.EQL: return 'EQL';
+        case OPCODES.LSS: return 'LSS';
+        case OPCODES.GR8: return 'GR8';
+        case OPCODES.TRM: return 'TRM';
+        default:
+            break;
+        }
+
+        return n;
+    },
 };
 
 const parser = function (trace, input) {
@@ -145,7 +178,21 @@ const parser = function (trace, input) {
     return tokens;
 };
 
-const interpreter = function (trace, tokens, stdin, stdout) {
+class OpcodeError extends Error {
+    constructor(opcode, message, ...params) {
+        super(`(${OPCODES.name(opcode)}) ${message}`, ...params);
+        this.name = 'OpcodeError';
+    }
+};
+
+class LimitError extends Error {
+    constructor(...params) {
+        super(...params);
+        this.name = 'LimitError';
+    }
+}
+
+const interpreter = function (trace, abyss, tokens, stdin, stdout) {
     trace.push('interpreter');
 
     // limit the number of executed operations to avoid infinite loops
@@ -169,14 +216,17 @@ const interpreter = function (trace, tokens, stdin, stdout) {
     let cursor = 0;
     let result = null;
     while (cursor < tokens.length) {
-        // todo
+        switch (OPCODES.get(trace, tokens[cursor])) {
+        default:
+            throw new OpcodeError(tokens[cursor], 'invalid opcode');
+        }
 
         cursor = cursor + 1;
 
         // stop interpreter on too many ops
         executed = executed + 1;
         if (executed >= oplimit) {
-            throw new Error('too many operations');
+            throw new LimitError('too many operations');
         }
     }
 
@@ -202,7 +252,7 @@ export default class AWA5 {
     run(input) {
         try {
             const tokens = parser(this.trace, input);
-            return interpreter(this.trace, tokens, this.intake, this.output);
+            return interpreter(this.trace, this.abyss, tokens, this.intake, this.output);
         } catch (e) {
             this.output.push(e);
             for (let i=this.trace.length-1; i>=0; --i) {
