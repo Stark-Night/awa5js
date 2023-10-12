@@ -216,11 +216,59 @@ const interpreter = function (trace, abyss, tokens, stdin, stdout) {
     let cursor = 0;
     let result = null;
     while (cursor < tokens.length) {
-        switch (OPCODES.get(trace, tokens[cursor])) {
+        const code = OPCODES.get(trace, tokens[cursor]);
+        trace.push(OPCODE.name(code));
+
+        switch (code) {
+        case OPCODES.NOP:
+            break;
+        case OPCODES.PRN:
+            break;
+        case OPCODES.PR1:
+            break;
+        case OPCODES.RED:
+            break;
+        case OPCODES.R3D:
+            break;
+        case OPCODES.BLO:
+            break;
+        case OPCODES.SBM:
+            break;
+        case OPCODES.POP:
+            break;
+        case OPCODES.DPL:
+            break;
+        case OPCODES.SRN:
+            break;
+        case OPCODES.MRG:
+            break;
+        case OPCODES.DD4:
+            break;
+        case OPCODES.SUB:
+            break;
+        case OPCODES.MUL:
+            break;
+        case OPCODES.DIV:
+            break;
+        case OPCODES.CNT:
+            break;
+        case OPCODES.LBL:
+            break;
+        case OPCODES.JMP:
+            break;
+        case OPCODES.EQL:
+            break;
+        case OPCODES.LSS:
+            break;
+        case OPCODES.GR8:
+            break;
+        case OPCODES.TRM:
+            break;
         default:
             throw new OpcodeError(tokens[cursor], 'invalid opcode');
         }
 
+        trace.pop();
         cursor = cursor + 1;
 
         // stop interpreter on too many ops
