@@ -1,0 +1,13 @@
+{
+    "name": "awa5",
+    "version": "1.0.0",
+    "description": "Interpreter for the AWA5 language",
+    "author": {
+        "name": "Stark Night",
+        "email": "starknightawawa@gmail.com",
+    },
+    "contributors": [
+        { "name": "Temp-Tempai", "url": "https://www.youtube.com/@tempflavr" }
+    ],
+    "main": "awa5.js"
+}
