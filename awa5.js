@@ -343,35 +343,79 @@ class InOut {
     }
 }
 
-const opSubmerge = function (trace, abyss, input) {
-    trace.push('opSubmerge');
-    const value = abyss.pop();
-
-    if (0 === input) {
-        abyss.unshift(value);
-    } else {
-        // warning: can be slow in some cases
-        abyss.splice(abyss.length - input, 0, value);
+class Abysser {
+    constructor(abyss) {
+        this.abyss = abyss;
     }
 
-    trace.pop();
-    return null;
-};
+    submerge(trace, input) {
+        trace.push('Abysser.submerge');
+        const value = this.abyss.pop();
 
-const opPop = function (trace, input) {
-    trace.push('opPop');
-    if (false === input.isDouble()) {
+        if (0 === input) {
+            this.abyss.unshift(value);
+        } else {
+            // warning: can be slow in some cases
+            this.abyss.splice(this.abyss.length - input, 0, value);
+        }
+
+        trace.pop();
         return null;
     }
 
-    const bubbles = [];
-    for (let v of input.value()) {
-        bubbles.push(new Bubble(v));
+    pop(trace, input) {
+        trace.push('Abysser.pop');
+        if (false === input.isDouble()) {
+            return null;
+        }
+
+        const bubbles = [];
+        for (let v of input.value()) {
+            bubbles.push(new Bubble(v));
+        }
+
+        trace.pop();
+        return bubbles;
     }
 
-    trace.pop();
-    return bubbles;
-};
+    duplicate(trace, input) {
+        trace.push('Abysser.duplicate');
+        const bubbles = [input, input.clone()];
+
+        trace.pop();
+        return bubbles;
+    }
+
+    surround(trace, input) {
+        trace.push('Abysser.surround');
+        const bubble = new Bubble();
+
+        for (let i=0; i<input; ++i) {
+            bubble.merge(this.abyss.pop());
+        }
+
+        trace.pop();
+        return bubble;
+    }
+
+    merge(trace, input) {
+        trace.push('Abysser.merge');
+        const bubble = input[0];
+
+        if (false === input[0].isDouble() && false === input[1].isDouble()) {
+            // merge two single bubble into one double bubble
+            const v1 = input[0].value();
+            const v2 = input[1].value();
+
+            bubble = new Bubble([v2, v1]);
+        } else {
+            bubble.merge(input[1]);
+        }
+
+        trace.pop();
+        return bubble;
+    }
+}
 
 const interpreter = function (trace, abyss, tokens, stdin, stdout) {
     trace.push('interpreter');
@@ -395,6 +439,9 @@ const interpreter = function (trace, abyss, tokens, stdin, stdout) {
 
     // handle in/out
     const inout = new InOut(stdin, stdout);
+
+    // handle bubble juggling
+    const abysser = new Abysser(abyss);
 
     // execute the tokens
     let cursor = 0;
@@ -435,20 +482,36 @@ const interpreter = function (trace, abyss, tokens, stdin, stdout) {
             if (undefined  === tokens[cursor + 1]) {
                 throw new OpcodeError(tokens[cursor], 'not enough arguments');
             }
-            result = opSubmerge(trace, abyss, tokens[cursor + 1]);
+            result = abysser.submerge(trace, tokens[cursor + 1]);
             cursor = cursor + 1;
             break;
         case OPCODES.POP:
             if (0 === abyss.length) {
                 throw new OpcodeError(tokens[cursor], 'not enough bubbles');
             }
-            result = opPop(trace, abyss.pop());
+            result = abysser.pop(trace, abyss.pop());
             break;
         case OPCODES.DPL:
+            if (0 === abyss.length) {
+                throw new OpcodeError(tokens[cursor], 'not enough bubbles');
+            }
+            result = abysser.duplicate(trace, abyss.pop());
             break;
         case OPCODES.SRN:
+            if (undefined === tokens[cursor + 1]) {
+                throw new OpcodeError(tokens[cursor], 'not enough arguments');
+            }
+            if (tokens[cursor + 1] > abyss.length) {
+                throw new OpcodeError(tokens[cursor], 'not enough bubbles');
+            }
+            result = abysser.surround(trace, tokens[cursor + 1]);
+            cursor = cursor + 1;
             break;
         case OPCODES.MRG:
+            if (2 > abyss.length) {
+                throw new OpcodeError(tokens[cursor], 'not enough bubbles');
+            }
+            result = abysser.merge(trace, [abyss.pop(), abyss.pop()]);
             break;
         case OPCODES.DD4:
             break;
