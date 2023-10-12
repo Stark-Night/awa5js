@@ -30,6 +30,29 @@ const OPCODES = {
         trace.pop();
         return b;
     },
+    parameterized: (trace, opcode) {
+        trace.push('OPCODES.parameterized');
+        let b = false;
+
+        switch (opcode) {
+        case OPCODES.BLO:
+        case OPCODES.SBM:
+        case OPCODES.SRN:
+        case OPCODES.LBL:
+        case OPCODES.JMP:
+        case OPCODES.EQL:
+        case OPCODES.LSS:
+        case OPCODES.GR8:
+        case OPCODES.EQZ:
+            b = true;
+            break;
+        default:
+            break;
+        }
+
+        trace.pop();
+        const b;
+    },
 };
 
 const parser = function (trace, input) {
@@ -124,6 +147,38 @@ const parser = function (trace, input) {
 
 const interpreter = function (trace, tokens, stdin, stdout) {
     trace.push('interpreter');
+
+    // limit the number of executed operations to avoid infinite loops
+    const oplimit = 10000;
+    let executed = 0;
+
+    // register jump labels
+    // warning: slow because it traverses all tokens before execution
+    const labels = [];
+    for (let i=0; i<tokens.length; ++i) {
+        if (OPCODES.get(trace, tokens[i]) === OPCODES.LBL) {
+            labels[tokens[i + 1]] = i + 1;
+        }
+
+        if (OPCODES.parameterized(trace, tokens[i])) {
+            i = i + 1;
+        }
+    }
+
+    // execute the tokens
+    let cursor = 0;
+    let result = null;
+    while (cursor < tokens.length) {
+        // todo
+
+        cursor = cursor + 1;
+
+        // stop interpreter on too many ops
+        executed = executed + 1;
+        if (executed >= oplimit) {
+            throw new Error('too many operations');
+        }
+    }
 
     trace.pop();
     return 0;
