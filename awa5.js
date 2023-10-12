@@ -398,14 +398,14 @@ class Abysser {
         return bubble;
     }
 
-    merge(trace, input) {
+    merge(trace, b1, b2) {
         trace.push('Abysser.merge');
-        const bubble = input[0];
+        const bubble = b1;
 
-        if (false === input[0].isDouble() && false === input[1].isDouble()) {
+        if (false === b1.isDouble() && false === b2.isDouble()) {
             // merge two single bubble into one double bubble
-            const v1 = input[0].value();
-            const v2 = input[1].value();
+            const v1 = b1.value();
+            const v2 = b2.value();
 
             bubble = new Bubble([v2, v1]);
         } else {
@@ -414,6 +414,131 @@ class Abysser {
 
         trace.pop();
         return bubble;
+    }
+}
+
+class Arith {
+    static add(trace, b1, b2) {
+        trace.push('Arith.add');
+        let result = null;
+
+        const b1double = b1.isDouble();
+        const b2double = b2.isDouble();
+        const b1v = b1.value();
+        const b2v = b2.value();
+
+        if (false === b1double && false === b2double) {
+            result = new Bubble(b1v + b2v);
+        } else if (true === b1double && false === b2double) {
+            result = new Bubble(b1v.map((e) => (e + b2v)));
+        } else if (false === b1double && true === b2double) {
+            result = new Bubble(b2v.map((e) => (e + b1v)));
+        } else if (true === b1double && true === b2double) {
+            const values = [];
+            const len = Math.min(b1.size(), b2.size());
+            for (let i=0; i<len; ++i) {
+                values.push(b1v[i] + b2v[i]);
+            }
+            result = new Bubble(...values);
+        }
+
+        trace.pop();
+        return result;
+    }
+
+    static sub(trace, b1, b2) {
+        trace.push('Arith.sub');
+        let result = null;
+
+        const b1double = b1.isDouble();
+        const b2double = b2.isDouble();
+        const b1v = b1.value();
+        const b2v = b2.value();
+
+        if (false === b1double && false === b2double) {
+            result = new Bubble(b1v - b2v);
+        } else if (true === b1double && false === b2double) {
+            result = new Bubble(b1v.map((e) => (e - b2v)));
+        } else if (false === b1double && true === b2double) {
+            result = new Bubble(b2v.map((e) => (e - b1v)));
+        } else if (true === b1double && true === b2double) {
+            const values = [];
+            const len = Math.min(b1.size(), b2.size());
+            for (let i=0; i<len; ++i) {
+                values.push(b1v[i] - b2v[i]);
+            }
+            result = new Bubble(...values);
+        }
+
+        trace.pop();
+        return result;
+    }
+
+    static mul(trace, b1, b2) {
+        trace.push('Arith.mul');
+        let result = null;
+
+        const b1double = b1.isDouble();
+        const b2double = b2.isDouble();
+        const b1v = b1.value();
+        const b2v = b2.value();
+
+        if (false === b1double && false === b2double) {
+            result = new Bubble(b1v * b2v);
+        } else if (true === b1double && false === b2double) {
+            result = new Bubble(b1v.map((e) => (e * b2v)));
+        } else if (false === b1double && true === b2double) {
+            result = new Bubble(b2v.map((e) => (e * b1v)));
+        } else if (true === b1double && true === b2double) {
+            const values = [];
+            const len = Math.min(b1.size(), b2.size());
+            for (let i=0; i<len; ++i) {
+                values.push(b1v[i] * b2v[i]);
+            }
+            result = new Bubble(...values);
+        }
+
+        trace.pop();
+        return result;
+    }
+
+    static div(trace, b1, b2) {
+        trace.push('Arith.div');
+        let result = null;
+
+        const b1double = b1.isDouble();
+        const b2double = b2.isDouble();
+        const b1v = b1.value();
+        const b2v = b2.value();
+
+        if (false === b1double && false === b2double) {
+            result = new Bubble(...this.bubblediv(bv1, bv2));
+        } else if (true === b1double && false === b2double) {
+            result = new Bubble(b1v.map((e) => (new Bubble(...this.bubblediv(e, b2v)))));
+        } else if (false === b1double && true === b2double) {
+            result = new Bubble(b2v.map((e) => (new Bubble(...this.bubblediv(e, b1v)))));
+        } else if (true === b1double && true === b2double) {
+            const values = [];
+            const len = Math.min(b1.size(), b2.size());
+            for (let i=0; i<len; ++i) {
+                values.push(new Bubble(...this.bubblediv(b1v[i], b2v[i])));
+            }
+            result = new Bubble(...values);
+        }
+
+        trace.pop();
+        return result;
+    }
+
+    static bubblediv(trace, v1, v2) {
+        trace.push('Arith.bubblediv');
+        let division = v1 / v2;
+        division = (division < 0) ? Math.ceil(division) : Math.floor(division);
+
+        let remainder = v1 % v2;
+
+        trace.pop();
+        return [remainder, division];
     }
 }
 
@@ -511,15 +636,31 @@ const interpreter = function (trace, abyss, tokens, stdin, stdout) {
             if (2 > abyss.length) {
                 throw new OpcodeError(tokens[cursor], 'not enough bubbles');
             }
-            result = abysser.merge(trace, [abyss.pop(), abyss.pop()]);
+            result = abysser.merge(trace, abyss.pop(), abyss.pop());
             break;
         case OPCODES.DD4:
+            if (2 > abyss.length) {
+                throw new OpcodeError(tokens[cursor], 'not enough bubbles');
+            }
+            result = Arith.add(trace, abyss.pop(), abyss.pop());
             break;
         case OPCODES.SUB:
+            if (2 > abyss.length) {
+                throw new OpcodeError(tokens[cursor], 'not enough bubbles');
+            }
+            result = Arith.sub(trace, abyss.pop(), abyss.pop());
             break;
         case OPCODES.MUL:
+            if (2 > abyss.length) {
+                throw new OpcodeError(tokens[cursor], 'not enough bubbles');
+            }
+            result = Arith.mul(trace, abyss.pop(), abyss.pop());
             break;
         case OPCODES.DIV:
+            if (2 > abyss.length) {
+                throw new OpcodeError(tokens[cursor], 'not enough bubbles');
+            }
+            result = Arith.div(trace, abyss.pop(), abyss.pop());
             break;
         case OPCODES.CNT:
             break;
