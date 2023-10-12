@@ -357,7 +357,7 @@ export default class AWA5 {
             for (let i=this.trace.length-1; i>=0; --i) {
                 this.output.push(`#${i} ${this.trace[i]}`);
             }
-            return this.output;
+            return 1;
         }
     }
 };
