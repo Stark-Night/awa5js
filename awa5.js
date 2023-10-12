@@ -525,19 +525,19 @@ class Arith {
 
         if (false === b1double && false === b2double) {
             // two single bubbles
-            result = new Bubble(...this.bubblediv(bv1, bv2));
+            result = new Bubble(...Arith.bubblediv(bv1, bv2));
         } else if (true === b1double && false === b2double) {
             // first bubble is double
-            result = new Bubble(b1v.map((e) => (new Bubble(...this.bubblediv(e, b2v)))));
+            result = new Bubble(b1v.map((e) => (new Bubble(...Arith.bubblediv(e, b2v)))));
         } else if (false === b1double && true === b2double) {
             // second bubble is double
-            result = new Bubble(b2v.map((e) => (new Bubble(...this.bubblediv(e, b1v)))));
+            result = new Bubble(b2v.map((e) => (new Bubble(...Arith.bubblediv(e, b1v)))));
         } else if (true === b1double && true === b2double) {
             // all bubbles are double
             const values = [];
             const len = Math.min(b1.size(), b2.size());
             for (let i=0; i<len; ++i) {
-                values.push(new Bubble(...this.bubblediv(b1v[i], b2v[i])));
+                values.push(new Bubble(...Arith.bubblediv(b1v[i], b2v[i])));
             }
             result = new Bubble(...values);
         }
