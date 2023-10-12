@@ -558,6 +558,91 @@ class Arith {
     }
 }
 
+class Comparator {
+    static equal(trace, b1, b2) {
+        trace.push('Comparator.equal');
+        let result = false;
+
+        const b1double = b1.isDouble();
+        const b2double = b2.isDouble();
+        const b1v = b1.value();
+        const b2v = b2.value();
+
+        if ((true === b1double && false === b2double)
+            || (false === b1double && true === b2double)) {
+            // single and double bubbles are always different
+            result = false;
+        } else if (true === b1double && true === b2double) {
+            // double bubbles are compared in every value
+            if (b1.size() !== b2.size()) {
+                // different sizes make bubbles different
+                result = false;
+            } else {
+                result = true;
+
+                const bsize = b1.size();
+                for (let i=0; i<bsize && true===result; ++i) {
+                    if (b1v[i] === b2v[i]) {
+                        continue;
+                    }
+
+                    result = false;
+                }
+            }
+        } else {
+            result = (b1v === b2v);
+        }
+
+        trace.pop();
+        return result;
+    }
+
+    static less(trace, b1, b2) {
+        trace.push('Comparator.less');
+        let result = false;
+
+        // only single bubbles can be sorted in a less-than order
+        // vectors (double bubbles) have many edge cases in their
+        // sorting and it's not worth it without a generic comparator
+        // function
+        if (false === b1.isDouble() && false === b2.isDouble()) {
+            result = (b1.value() < b2.value());
+        }
+
+        trace.pop();
+        return result;
+    }
+
+    static greater(trace, b1, b2) {
+        trace.push('Comparator.greater');
+        let result = false;
+
+        // only single bubbles can be sorted in a greater-than order
+        // vectors (double bubbles) have many edge cases in their
+        // sorting and it's not worth it without a generic comparator
+        // function
+        if (false === b1.isDouble() && false === b2.isDouble()) {
+            result = (b1.value() < b2.value());
+        }
+
+        trace.pop();
+        return result;
+    }
+
+    static zero(trace, b1) {
+        trace.push('Comparator.zero');
+        let result = false;
+
+        // only single bubbles can be compared with the single value 0
+        if (false === b1.isDouble()) {
+            result = (0 === b1.value());
+        }
+
+        trace.pop();
+        return result;
+    }
+};
+
 const interpreter = function (trace, abyss, tokens, stdin, stdout) {
     trace.push('interpreter');
 
@@ -704,12 +789,64 @@ const interpreter = function (trace, abyss, tokens, stdin, stdout) {
             }
             break;
         case OPCODES.EQL:
+            if (undefined === tokens[cursor + 1]) {
+                throw new OpcodeError(tokens[cursor], 'not enough arguments');
+            }
+            if (2 > abyss.length) {
+                throw new OpcodeError(tokens[cursor], 'not enough bubbles');
+            }
+            if (true === Comparator.equal(abyss[abyss.length - 1], abyss[abyss.length - 2])
+                && undefined !== labels[tokens[cursor + 1]]) {
+                cursor = labels[tokens[cursor + 1]];
+            } else {
+                cursor = cursor + 1;
+            }
             break;
         case OPCODES.LSS:
+            if (undefined === tokens[cursor + 1]) {
+                throw new OpcodeError(tokens[cursor], 'not enough arguments');
+            }
+            if (2 > abyss.length) {
+                throw new OpcodeError(tokens[cursor], 'not enough bubbles');
+            }
+            if (true === Comparator.less(abyss[abyss.length - 1], abyss[abyss.length - 2])
+                && undefined !== labels[tokens[cursor + 1]]) {
+                cursor = labels[tokens[cursor + 1]];
+            } else {
+                cursor = cursor + 1;
+            }
             break;
         case OPCODES.GR8:
+            if (undefined === tokens[cursor + 1]) {
+                throw new OpcodeError(tokens[cursor], 'not enough arguments');
+            }
+            if (2 > abyss.length) {
+                throw new OpcodeError(tokens[cursor], 'not enough bubbles');
+            }
+            if (true === Comparator.greater(abyss[abyss.length - 1], abyss[abyss.length - 2])
+                && undefined !== labels[tokens[cursor + 1]]) {
+                cursor = labels[tokens[cursor + 1]];
+            } else {
+                cursor = cursor + 1;
+            }
+            break;
+        case OPCODES.EQZ:
+            if (undefined === tokens[cursor + 1]) {
+                throw new OpcodeError(tokens[cursor], 'not enough arguments');
+            }
+            if (0 === abyss.length) {
+                throw new OpcodeError(tokens[cursor], 'not enough bubbles');
+            }
+            if (true === Comparator.zero(abyss[abyss.length - 1])
+                && undefined !== labels[tokens[cursor + 1]]) {
+                cursor = labels[tokens[cursor + 1]];
+            } else {
+                cursor = cursor + 1;
+            }
             break;
         case OPCODES.TRM:
+            // pushing the cursor out of the tokens size terminates the program
+            cursor = tokens.length;
             break;
         default:
             throw new OpcodeError(tokens[cursor], 'invalid opcode');
