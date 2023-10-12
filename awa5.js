@@ -238,6 +238,111 @@ class Bubble {
     }
 };
 
+class InOut {
+    constructor(stdin, stdout) {
+        this.stdin = stdin;
+        this.stdout = stdout;
+
+        this.ALPHABET = 'AWawJELYHOSIUMjelyhosiumPCNTpcntBDFGRbdfgr0123456789 .,!\'()~_/;\n';
+    }
+
+    letter(trace, v) {
+        trace.push('InOut.letter');
+        let letter = v;
+
+        if ('string' !== typeof v) {
+            if (v < 0 || v > this.ALPHABET.length) {
+                throw new RangeError(`index ${v} out of range`);
+            }
+
+            letter = this.ALPHABET[v];
+        }
+
+        trace.pop();
+        return letter;
+    }
+
+    write(trace, bubble) {
+        trace.push('InOut.write');
+        let out = '';
+        if (bubble.isDouble()) {
+            // write all values of double bubbles as single string
+            out = bubble.value().map((e) => (this.letter(trace, e))).join('');
+        } else {
+            out = this.letter(trace, bubble.value());
+        }
+
+        this.stdout.push(out);
+
+        trace.pop();
+        return null;
+    }
+
+    read(trace) {
+        trace.push('InOut.read');
+        let line = this.stdin.pop();
+        if (!line) {
+            // if there are no lines provide a string nonetheless
+            line = '';
+        } else {
+            // validate the given characters
+            const split = this.ALPHABET.split('');
+            const cache = [];
+            let invalid = false;
+
+            for (let i=0; i<line.length && false===invalid; ++i) {
+                // fast check when multiple occurrences
+                if (cache[line[i]]) {
+                    continue;
+                }
+
+                // warning: includes is somewhat slow
+                if (split.includes(line[i])) {
+                    cache[line[i]] = true;
+                    continue;
+                }
+
+                invalid = true;
+            }
+
+            if (true === invalid) {
+                throw new RangeError(`'${line}' contains invalid characters`);
+            }
+        }
+
+        trace.pop();
+        return line;
+    }
+
+    writeRaw(trace, bubble) {
+        trace.push('InOut.writeRaw');
+        let out = `${bubble.value()}`;
+
+        this.stdout.push(out);
+
+        trace.pop();
+        return null;
+    }
+
+    readRaw(trace) {
+        trace.push('InOut.read');
+        let line = this.stdin.pop();
+        if (!line) {
+            // if there are no lines provide a number nonetheless
+            line = 0;
+        } else {
+            const v = parseInt(line);
+            if (isNaN(v)) {
+                throw new TypeError(`'${line}' is not a number`);
+            }
+            line = v;
+        }
+
+        trace.pop();
+        return line;
+    }
+}
+
 const interpreter = function (trace, abyss, tokens, stdin, stdout) {
     trace.push('interpreter');
 
