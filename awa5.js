@@ -190,7 +190,53 @@ class LimitError extends Error {
         super(...params);
         this.name = 'LimitError';
     }
-}
+};
+
+class Bubble {
+    constructor(...values) {
+        this.backing = [...values];
+    }
+
+    value() {
+        if (this.backing.length > 1) {
+            // clone to avoid phantom edits
+            // it's obviously expensive
+            return [...this.backing];
+        }
+
+        if (0 === this.backing.length) {
+            // ensure we always have a value
+            // 0 is not necessarily the correct value
+            return 0;
+        }
+
+        return this.backing[0];
+    }
+
+    merge(bubble) {
+        const v = bubble.value();
+
+        try {
+            this.backing.unshift(...v);
+        } catch {
+            this.backing.unshift(v);
+        }
+
+        return this;
+    }
+
+    clone() {
+        return new Bubble(...this.backing);
+    }
+
+    isDouble() {
+        return this.backing.length > 1;
+    }
+
+    size() {
+        return this.backing.length;
+    }
+};
 
 const interpreter = function (trace, abyss, tokens, stdin, stdout) {
     trace.push('interpreter');
@@ -278,8 +324,13 @@ const interpreter = function (trace, abyss, tokens, stdin, stdout) {
         }
     }
 
+    // use last value in the abyss as return value, if it exists
+    const retval = (abyss.length > 0) ? abyss.pop().value() : 0;
+    // reset the abyss so the interpreter can run other programs
+    abyss.splice(0, abyss.length);
+
     trace.pop();
-    return 0;
+    return retval;
 };
 
 export default class AWA5 {
