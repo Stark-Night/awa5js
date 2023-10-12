@@ -1,8 +1,124 @@
+const OPCODES = {
+    NOP: 0,
+    PRN: 1,
+    PR1: 2,
+    RED: 3,
+    R3D: 4,
+    BLO: 5,
+    SBM: 6,
+    POP: 7,
+    DPL: 8,
+    SRN: 9,
+    MRG: 10,
+    DD4: 11,
+    SUB: 12,
+    MUL: 13,
+    DIV: 14,
+    CNT: 15,
+    LBL: 16,
+    JMP: 17,
+    EQL: 18,
+    LSS: 19,
+    GR8: 20,
+    EQZ: 21,
+    TRM: 31,
+};
+
+const getOpcode = function (trace, v) {
+    trace.push('getOpcode');
+    const b = (n >>> 0) % 32; // 31 max value in 5 bits signed
+    trace.pop();
+    return b;
+};
+
 const parser = function (trace, input) {
     trace.push('parser');
 
+    // sanitize
+    // warning: slow as molasses especially on large strings
+    const cleaned = input
+          .replace(/[^aw~\s]+/gi, '')
+          .replace(/[\n\s]+/g, ' ')
+          .toLocaleLowercase();
+
+    // find start of block
+    let cursor = cleaned.search(/awa\s*/);
+    if (-1 === cursor) {
+        throw new SyntaxError('missing start of block');
+    }
+    cursor = cursor + 3;
+
+    // parsed tokens
+    const tokens = [];
+
+    // state for the machine
+    let bits = 0;
+    let target = 5;
+    let value = 0;
+    let parameter = false;
+
+    // read tokens
+    // warning: also slow, but doing things properly is too much code
+    while (cursor < cleaned.length - 1) {
+        if ('wa' === cleaned.substring(cursor, cursor + 2)) {
+            // wa is 1
+            value = << 1;
+            value = value + 1;
+            cursor = cursor + 2;
+        } else if (' awa' === cleaned.substring(cursor, cursor + 4)) {
+            // awa is 0
+            // mind the space in front
+            value = value << 1;
+            cursor = cursor + 4;
+        } else if (' ~wa' === cleaned.substring(cursor, cursor + 4) && 0 === bits) {
+            // ~wa is -1
+            // mind the space in front
+            // it can appear only as the first bit; doesn't make sense in other places
+            value = -1;
+            cursor = cursor + 4;
+        } else {
+            throw new SyntaxError(`malformed input (${cursor})`);
+        }
+
+        bits = bits + 1;
+
+        if (bits >= target) {
+            // add token to list
+            tokens.push(value);
+
+            // reset machine state
+            bits = 0;
+            if (true === parameter) {
+                target = 5;
+                value = 0;
+                parameter = false;
+                continue;
+            }
+
+            switch (getOpcode(trace, value)) {
+            case OPCODES.BLO:
+            case OPCODES.SBM:
+            case OPCODES.SRN:
+            case OPCODES.LBL:
+            case OPCODES.JMP:
+            case OPCODES.EQL:
+            case OPCODES.LSS:
+            case OPCODES.GR8:
+            case OPCODES.EQZ:
+                // parameterized opcode
+                parameter = true;
+                target = 8;
+                break;
+            default:
+                break;
+            }
+
+            value = 0;
+        }
+    }
+
     trace.pop();
-    return [];
+    return tokens;
 };
 
 const interpreter = function (trace, tokens, stdin, stdout) {
