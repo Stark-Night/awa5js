@@ -234,7 +234,7 @@ class Bubble {
     }
 
     size() {
-        return this.backing.length;
+        return (1 === this.backing.length) ? 0 : this.backing.length;
     }
 };
 
@@ -428,12 +428,16 @@ class Arith {
         const b2v = b2.value();
 
         if (false === b1double && false === b2double) {
+            // two single bubbles
             result = new Bubble(b1v + b2v);
         } else if (true === b1double && false === b2double) {
+            // first bubble is double
             result = new Bubble(b1v.map((e) => (e + b2v)));
         } else if (false === b1double && true === b2double) {
+            // second bubble is double
             result = new Bubble(b2v.map((e) => (e + b1v)));
         } else if (true === b1double && true === b2double) {
+            // all bubbles are double
             const values = [];
             const len = Math.min(b1.size(), b2.size());
             for (let i=0; i<len; ++i) {
@@ -456,12 +460,16 @@ class Arith {
         const b2v = b2.value();
 
         if (false === b1double && false === b2double) {
+            // two single bubbles
             result = new Bubble(b1v - b2v);
         } else if (true === b1double && false === b2double) {
+            // first bubble is double
             result = new Bubble(b1v.map((e) => (e - b2v)));
         } else if (false === b1double && true === b2double) {
+            // second bubble is double
             result = new Bubble(b2v.map((e) => (e - b1v)));
         } else if (true === b1double && true === b2double) {
+            // all bubbles are double
             const values = [];
             const len = Math.min(b1.size(), b2.size());
             for (let i=0; i<len; ++i) {
@@ -484,12 +492,16 @@ class Arith {
         const b2v = b2.value();
 
         if (false === b1double && false === b2double) {
+            // two single bubbles
             result = new Bubble(b1v * b2v);
         } else if (true === b1double && false === b2double) {
+            // first bubble is double
             result = new Bubble(b1v.map((e) => (e * b2v)));
         } else if (false === b1double && true === b2double) {
+            // second bubble is double
             result = new Bubble(b2v.map((e) => (e * b1v)));
         } else if (true === b1double && true === b2double) {
+            // all bubbles are double
             const values = [];
             const len = Math.min(b1.size(), b2.size());
             for (let i=0; i<len; ++i) {
@@ -512,12 +524,16 @@ class Arith {
         const b2v = b2.value();
 
         if (false === b1double && false === b2double) {
+            // two single bubbles
             result = new Bubble(...this.bubblediv(bv1, bv2));
         } else if (true === b1double && false === b2double) {
+            // first bubble is double
             result = new Bubble(b1v.map((e) => (new Bubble(...this.bubblediv(e, b2v)))));
         } else if (false === b1double && true === b2double) {
+            // second bubble is double
             result = new Bubble(b2v.map((e) => (new Bubble(...this.bubblediv(e, b1v)))));
         } else if (true === b1double && true === b2double) {
+            // all bubbles are double
             const values = [];
             const len = Math.min(b1.size(), b2.size());
             for (let i=0; i<len; ++i) {
@@ -554,6 +570,9 @@ const interpreter = function (trace, abyss, tokens, stdin, stdout) {
     const labels = [];
     for (let i=0; i<tokens.length; ++i) {
         if (OPCODES.get(trace, tokens[i]) === OPCODES.LBL) {
+            if (undefined === tokens[i + 1]) {
+                throw new OpcodeError(tokens[i], 'not enough arguments');
+            }
             labels[tokens[i + 1]] = i + 1;
         }
 
@@ -577,6 +596,7 @@ const interpreter = function (trace, abyss, tokens, stdin, stdout) {
 
         switch (code) {
         case OPCODES.NOP:
+            // nop = no operations...
             break;
         case OPCODES.PRN:
             if (0 === abyss.length) {
@@ -663,10 +683,25 @@ const interpreter = function (trace, abyss, tokens, stdin, stdout) {
             result = Arith.div(trace, abyss.pop(), abyss.pop());
             break;
         case OPCODES.CNT:
+            if (0 === abyss.length) {
+                throw new OpcodeError(tokens[cursor], 'not enough bubbles');
+            }
+            result = new Bubble(abyss[abyss.length - 1].size());
             break;
         case OPCODES.LBL:
+            // labels are already handled here; simply jump the argument
+            cursor = cursor + 1;
             break;
         case OPCODES.JMP:
+            if (undefined === tokens[cursor + 1]) {
+                throw new OpcodeError(tokens[cursor], 'not enough arguments');
+            }
+            if (undefined === labels[tokens[cursor + 1]]) {
+                // unregistered labels are ignored instead of singaling an error
+                cursor = cursor + 1;
+            } else {
+                cursor = labels[tokens[cursor + 1]];
+            }
             break;
         case OPCODES.EQL:
             break;
