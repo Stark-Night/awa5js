@@ -272,7 +272,7 @@ class InOut {
             out = this.letter(trace, bubble.value());
         }
 
-        this.stdout.push(out);
+        this.stdout.write(out);
 
         trace.pop();
         return null;
@@ -318,7 +318,7 @@ class InOut {
         trace.push('InOut.writeRaw');
         let out = `${bubble.value()}`;
 
-        this.stdout.push(out);
+        this.stdout.write(out);
 
         trace.pop();
         return null;
@@ -924,6 +924,53 @@ class DOMReader {
     }
 };
 
+class ArrayWriter {
+    constructor(backing) {
+        this.backing = backing;
+    }
+
+    write(line) {
+        this.backing.push(line);
+    }
+};
+
+class DOMWriter {
+    constructor(node) {
+        const tag = node.tagName.toLowerCase();
+
+        switch (tag) {
+        case 'input':
+            if ('text' !== node.type) {
+                throw new TypeError('not a valid DOM node');
+            }
+            break;
+        case 'textarea':
+        case 'div':
+        case 'span':
+        case 'p':
+        case 'pre':
+            break;
+        default:
+            throw new TypeError('not a valid DOM node');
+        }
+
+        this.backing = node;
+    }
+
+    write(line) {
+        const towrite = line + '<br/>';
+        switch (this.backing.tagName.toLowerCase()) {
+        case 'input':
+        case 'textarea':
+            this.backing.value += towrite;
+            break;
+        default:
+            this.backing.innerHTML += towrite;
+            break;
+        }
+    }
+};
+
 export default class AWA5 {
     constructor() {
         // global stack
@@ -936,7 +983,7 @@ export default class AWA5 {
         this.intake = new ArrayReader([]);
 
         // output by line
-        this.output = [];
+        this.output = new ArrayWriter([]);
     }
 
     async run(input) {
@@ -946,9 +993,9 @@ export default class AWA5 {
             this.intake.reset(); // allow repeating the program as-is
             return result;
         } catch (e) {
-            this.output.push(e);
+            this.output.write(e);
             for (let i=this.trace.length-1; i>=0; --i) {
-                this.output.push(`#${i} ${this.trace[i]}`);
+                this.output.write(`#${i} ${this.trace[i]}`);
             }
             return 1;
         }
@@ -960,6 +1007,16 @@ export default class AWA5 {
         }
 
         this.intake = reader;
+        return this;
+    }
+
+    setOutputWriter(writer) {
+        if (false === writer instanceof ArrayWriter && false === writer instanceof DOMWriter) {
+            throw new TypeError('not a valid reader');
+        }
+
+        this.output = writer;
+        return this;
     }
 
     static reader(options) {
@@ -980,5 +1037,25 @@ export default class AWA5 {
         }
 
         return new ArrayReader([]);
+    }
+
+    static writer(options) {
+        if (!options || 'object' !== typeof options) {
+            return new ArrayWriter([]);
+        }
+
+        if (options.buffer) {
+            if ('object' === typeof options.buffer) {
+                return new ArrayWriter(options.buffer);
+            }
+
+            return new ArrayWriter([]);
+        }
+
+        if (options.node) {
+            return new DOMWriter(options.node);
+        }
+
+        return new ArrayWriter([]);
     }
 };
