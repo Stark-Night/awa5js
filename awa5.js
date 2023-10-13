@@ -447,22 +447,25 @@ class InOut {
         let line = await this.stdin.read();
         if (!line || 0 === line.length) {
             // if there are no lines provide a string nonetheless
-            line = '0';
+            line = ['0'];
         } else {
             // validate the given characters
             const split = this.ALPHABET.split('');
             const cache = [];
+	    const collected = [];
             let invalid = false;
 
             for (let i=0; i<line.length && false===invalid; ++i) {
                 // fast check when multiple occurrences
                 if (cache[line[i]]) {
+		    collected.push(line[i]);
                     continue;
                 }
 
                 // warning: includes is somewhat slow
                 if (split.includes(line[i])) {
                     cache[line[i]] = true;
+		    collected.push(line[i]);
                     continue;
                 }
 
@@ -472,10 +475,12 @@ class InOut {
             if (true === invalid) {
                 throw new RangeError(`'${line}' contains invalid characters`);
             }
+
+	    line = collected;
         }
 
         trace.pop();
-        return new Bubble(line);
+        return new Bubble(...line);
     }
 
     /**
