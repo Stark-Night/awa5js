@@ -79,6 +79,7 @@ const OPCODES = {
         case OPCODES.EQL: return 'EQL';
         case OPCODES.LSS: return 'LSS';
         case OPCODES.GR8: return 'GR8';
+        case OPCODES.EQZ: return 'EQZ';
         case OPCODES.TRM: return 'TRM';
         default:
             break;
@@ -795,7 +796,7 @@ const interpreter = async function (trace, abyss, tokens, stdin, stdout) {
             if (2 > abyss.length) {
                 throw new OpcodeError(tokens[cursor], 'not enough bubbles');
             }
-            if (true === Comparator.equal(abyss[abyss.length - 1], abyss[abyss.length - 2])
+            if (true === Comparator.equal(trace, abyss[abyss.length - 1], abyss[abyss.length - 2])
                 && undefined !== labels[tokens[cursor + 1]]) {
                 cursor = labels[tokens[cursor + 1]];
             } else {
@@ -809,7 +810,7 @@ const interpreter = async function (trace, abyss, tokens, stdin, stdout) {
             if (2 > abyss.length) {
                 throw new OpcodeError(tokens[cursor], 'not enough bubbles');
             }
-            if (true === Comparator.less(abyss[abyss.length - 1], abyss[abyss.length - 2])
+            if (true === Comparator.less(trace, abyss[abyss.length - 1], abyss[abyss.length - 2])
                 && undefined !== labels[tokens[cursor + 1]]) {
                 cursor = labels[tokens[cursor + 1]];
             } else {
@@ -823,7 +824,7 @@ const interpreter = async function (trace, abyss, tokens, stdin, stdout) {
             if (2 > abyss.length) {
                 throw new OpcodeError(tokens[cursor], 'not enough bubbles');
             }
-            if (true === Comparator.greater(abyss[abyss.length - 1], abyss[abyss.length - 2])
+            if (true === Comparator.greater(trace, abyss[abyss.length - 1], abyss[abyss.length - 2])
                 && undefined !== labels[tokens[cursor + 1]]) {
                 cursor = labels[tokens[cursor + 1]];
             } else {
@@ -837,7 +838,7 @@ const interpreter = async function (trace, abyss, tokens, stdin, stdout) {
             if (0 === abyss.length) {
                 throw new OpcodeError(tokens[cursor], 'not enough bubbles');
             }
-            if (true === Comparator.zero(abyss[abyss.length - 1])
+            if (true === Comparator.zero(trace, abyss[abyss.length - 1])
                 && undefined !== labels[tokens[cursor + 1]]) {
                 cursor = labels[tokens[cursor + 1]];
             } else {
@@ -863,6 +864,7 @@ const interpreter = async function (trace, abyss, tokens, stdin, stdout) {
             }
         }
 
+        result = null;
         cursor = cursor + 1;
 
         // stop interpreter on too many ops
@@ -958,7 +960,11 @@ class DOMWriter {
     }
 
     write(line) {
-        const towrite = line + '<br/>';
+        if (0 === line.length) {
+            return;
+        }
+
+        const towrite = `${line}`.replace(/\n/g, '<br/>');
         switch (this.backing.tagName.toLowerCase()) {
         case 'input':
         case 'textarea':
