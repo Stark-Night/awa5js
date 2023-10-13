@@ -278,12 +278,12 @@ class InOut {
         return null;
     }
 
-    read(trace) {
+    async read(trace) {
         trace.push('InOut.read');
-        let line = this.stdin.pop();
-        if (!line) {
+        let line = await this.stdin.read();
+        if (!line || 0 === line.length) {
             // if there are no lines provide a string nonetheless
-            line = '';
+            line = '0';
         } else {
             // validate the given characters
             const split = this.ALPHABET.split('');
@@ -311,7 +311,7 @@ class InOut {
         }
 
         trace.pop();
-        return line;
+        return new Bubble(line);
     }
 
     writeRaw(trace, bubble) {
@@ -324,10 +324,10 @@ class InOut {
         return null;
     }
 
-    readRaw(trace) {
+    async readRaw(trace) {
         trace.push('InOut.read');
-        let line = this.stdin.pop();
-        if (!line) {
+        let line = await this.stdin.read();
+        if (!line || 0 === line.length) {
             // if there are no lines provide a number nonetheless
             line = 0;
         } else {
@@ -339,7 +339,7 @@ class InOut {
         }
 
         trace.pop();
-        return line;
+        return new Bubble(line);
     }
 }
 
@@ -643,7 +643,7 @@ class Comparator {
     }
 };
 
-const interpreter = function (trace, abyss, tokens, stdin, stdout) {
+const interpreter = async function (trace, abyss, tokens, stdin, stdout) {
     trace.push('interpreter');
 
     // limit the number of executed operations to avoid infinite loops
@@ -696,10 +696,10 @@ const interpreter = function (trace, abyss, tokens, stdin, stdout) {
             result = inout.writeRaw(trace, abyss.pop());
             break;
         case OPCODES.RED:
-            result = inout.read(trace);
+            result = await inout.read(trace);
             break;
         case OPCODES.R3D:
-            result = inout.readRaw(trace);
+            result = await inout.readRaw(trace);
             break;
         case OPCODES.BLO:
             if (undefined === tokens[cursor + 1]) {
@@ -881,6 +881,49 @@ const interpreter = function (trace, abyss, tokens, stdin, stdout) {
     return retval;
 };
 
+class ArrayReader {
+    constructor(backing) {
+        this.backing = [...backing];
+        this.line = -1;
+    }
+
+    async read() {
+        this.line = this.line + 1;
+        return (undefined === this.backing[this.line]) ? '' : this.backing[this.line];
+    }
+
+    reset() {
+        this.line = -1;
+    }
+};
+
+class DOMReader {
+    constructor(node, actor) {
+        this.backing = node;
+        this.button = actor;
+    }
+
+    async read() {
+        let listener = null;
+        let promise = new Promise((resolve, reject) => {
+            listener = (e) => { resolve(this.backing.value); };
+
+            this.button.addEventListener('click', listener);
+        });
+
+        // "block" the script/interpreter until the click listener on actor/button is executed
+        const value = await promise;
+
+        this.button.removeEventListener('click', listener);
+
+        return value;
+    }
+
+    reset() {
+        // nothing to reset, but it keeps the interface uniform
+    }
+};
+
 export default class AWA5 {
     constructor() {
         // global stack
@@ -890,16 +933,18 @@ export default class AWA5 {
         this.trace = [];
 
         // input by line
-        this.intake = [];
+        this.intake = new ArrayReader([]);
 
         // output by line
         this.output = [];
     }
 
-    run(input) {
+    async run(input) {
         try {
             const tokens = parser(this.trace, input);
-            return interpreter(this.trace, this.abyss, tokens, this.intake, this.output);
+            const result = await interpreter(this.trace, this.abyss, tokens, this.intake, this.output);
+            this.intake.reset(); // allow repeating the program as-is
+            return result;
         } catch (e) {
             this.output.push(e);
             for (let i=this.trace.length-1; i>=0; --i) {
@@ -907,5 +952,33 @@ export default class AWA5 {
             }
             return 1;
         }
+    }
+
+    setInputReader(reader) {
+        if (false === reader instanceof ArrayReader && false === reader instanceof DOMReader) {
+            throw new TypeError('not a valid reader');
+        }
+
+        this.intake = reader;
+    }
+
+    static reader(options) {
+        if (!options || 'object' !== typeof options) {
+            return new ArrayReader([]);
+        }
+
+        if (options.buffer) {
+            if ('object' === typeof options.buffer) {
+                return new ArrayReader(options.buffer);
+            }
+
+            return new ArrayReader([]);
+        }
+
+        if (options.node && options.actor) {
+            return new DOMReader(options.node, options.actor);
+        }
+
+        return new ArrayReader([]);
     }
 };
