@@ -1,3 +1,6 @@
+/**
+ * Operations recognized by the interpreter.
+ */
 const OPCODES = {
     NOP: 0,
     PRN: 1,
@@ -24,12 +27,39 @@ const OPCODES = {
     TRM: 31,
 
     // utility functions
+
+    /**
+     * Get an opcode from a possibly signed value.
+     *
+     * This function will coerce every value within the interval of
+     * known opcodes, so if a token representing an argument, rather
+     * than a real opcode, is given as a value, the result is
+     * undefined.
+     *
+     * The interpreter might not know how to handle the returned
+     * opcode.
+     *
+     * @param trace interpreter stack trace
+     * @param token signed value to transform
+     * @returns an opcode
+     */
     get: (trace, token) => {
         trace.push('OPCODES.get');
         const b = (token >>> 0) % 32; // 31 max value in 5 bits signed
         trace.pop();
         return b;
     },
+
+    /**
+     * Tell whether an opcode expects a parameter.
+     *
+     * With parameterized opcodes the interpreter has to jump two
+     * tokens after executing the opcode.
+     *
+     * @param trace interpreter stack trace
+     * @param opcode the opcode to test
+     * @returns false if it is not parameterized
+     */
     parameterized: (trace, opcode) => {
         trace.push('OPCODES.parameterized');
         let b = false;
@@ -54,6 +84,18 @@ const OPCODES = {
         return b;
     },
 
+    /**
+     * Get a human-readable representation of the opcode.
+     *
+     * Effectively the `toString` method of opcodes, the other name
+     * was too long.
+     *
+     * If an opcode is not recognized it is returned as-is within a
+     * string, i.e. it will be a string spelling a number.
+     *
+     * @param opcode the opcode to get the name of
+     * @returns the opcode's name
+     */
     name: (opcode) => {
         let n = `${opcode}`;
 
@@ -89,6 +131,17 @@ const OPCODES = {
     },
 };
 
+/**
+ * Transform a string into a sequence of tokens.
+ *
+ * Tokens are just numbers which the interpreter will then execute as
+ * much as possible.
+ *
+ * @param trace interpreter stack trace
+ * @param input the string to parse
+ * @returns a sequence of tokens
+ * @throws a syntax error if the input is malformed
+ */
 const parser = function (trace, input) {
     trace.push('parser');
 
@@ -179,25 +232,57 @@ const parser = function (trace, input) {
     return tokens;
 };
 
+/**
+ * Error thrown during opcode execution.
+ */
 class OpcodeError extends Error {
+    /**
+     * @param opcode the opcode generating the error
+     * @param message the user-facing message
+     * @param ...params rest of arguments
+     */
     constructor(opcode, message, ...params) {
         super(`(${OPCODES.name(opcode)}) ${message}`, ...params);
         this.name = 'OpcodeError';
     }
 };
 
+/**
+ * Error thrown when certain limits are exeeded.
+ */
 class LimitError extends Error {
-    constructor(...params) {
-        super(...params);
+    /**
+     * @param message the user-facing message
+     * @param ...params rest of arguments 
+     */
+    constructor(message, ...params) {
+        super(message, ...params);
         this.name = 'LimitError';
     }
 };
 
+/**
+ * Wrapper around a value.
+ *
+ * The interpreter operates on bubbles not raw values, as that is the
+ * language semantics.
+ */
 class Bubble {
+    /**
+     * @param ...values initial values of the bubble
+     */
     constructor(...values) {
         this.backing = [...values];
     }
 
+    /**
+     * Get the raw value stored inside the bubble.
+     *
+     * If the bubble has multiple values, these values will be
+     * returned within a new array.
+     *
+     * @returns a value, 0 by default
+     */
     value() {
         if (this.backing.length > 1) {
             // clone to avoid phantom edits
@@ -214,6 +299,12 @@ class Bubble {
         return this.backing[0];
     }
 
+    /**
+     * Merge the given bubble's contents inside this bubble.
+     *
+     * @param bubble the bubble to merge
+     * @returns self
+     */
     merge(bubble) {
         const v = bubble.value();
 
@@ -226,20 +317,45 @@ class Bubble {
         return this;
     }
 
+    /**
+     * Generate a new bubble with the same values as this bubble.
+     *
+     * @returns a new bubble
+     */
     clone() {
         return new Bubble(...this.backing);
     }
 
+    /**
+     * Tell whether the bubble has more than one value.
+     *
+     * @returns false if the bubble has only one value
+     */
     isDouble() {
         return this.backing.length > 1;
     }
 
+    /**
+     * Return the size of the bubble.
+     *
+     * By definition bubbles with only one value inside have a size of
+     * 0, therefore it is an error to have bubbles of size 1.
+     *
+     * @returns the bubble's size
+     */
     size() {
         return (1 === this.backing.length) ? 0 : this.backing.length;
     }
 };
 
+/**
+ * Provide functions to handle opcode input and output.
+ */
 class InOut {
+    /**
+     * @param stdin an input reader
+     * @param stdout an output writer
+     */
     constructor(stdin, stdout) {
         this.stdin = stdin;
         this.stdout = stdout;
@@ -247,6 +363,17 @@ class InOut {
         this.ALPHABET = 'AWawJELYHOSIUMjelyhosiumPCNTpcntBDFGRbdfgr0123456789 .,!\'()~_/;\n';
     }
 
+    /**
+     * Get the letter associated with the given value.
+     *
+     * The alphabet is limited per specifications of the language, so
+     * any values outside the specified range will generate an error.
+     *
+     * @param trace intepreter stack trace
+     * @param v the value to transform
+     * @returns the associated letter
+     * @throws a range error if the value is not in the alphabet
+     */
     letter(trace, v) {
         trace.push('InOut.letter');
         let letter = v;
@@ -263,6 +390,16 @@ class InOut {
         return letter;
     }
 
+    /**
+     * Write the contents of a bubble as a string.
+     *
+     * The string representation is obtained by transforming each
+     * number into the associated letter.
+     *
+     * @param trace interpreter stack trace
+     * @param bubble the bubble to write
+     * @returns null
+     */
     write(trace, bubble) {
         trace.push('InOut.write');
         let out = '';
@@ -279,6 +416,18 @@ class InOut {
         return null;
     }
 
+    /**
+     * Read a string provided by the user.
+     *
+     * While reading, numbers are converted to letters of the known
+     * alphabet; to read actual numbers use `readRaw`.
+     *
+     * If the reader gives an empty line, the string `'0'` is
+     * returned.
+     *
+     * @param trace interpreter stack trace
+     * @returns new bubble with the value
+     */
     async read(trace) {
         trace.push('InOut.read');
         let line = await this.stdin.read();
@@ -315,6 +464,16 @@ class InOut {
         return new Bubble(line);
     }
 
+    /**
+     * Writes the contents of a bubble as a number or array.
+     *
+     * The actual format of the output is left to Javascript's own
+     * built-in toString functions.
+     *
+     * @param trace interpreter stack trace
+     * @param bubble the bubble to write
+     * @returns null
+     */
     writeRaw(trace, bubble) {
         trace.push('InOut.writeRaw');
         let out = `${bubble.value()}`;
@@ -325,6 +484,15 @@ class InOut {
         return null;
     }
 
+    /**
+     * Read a number provided by the user.
+     *
+     *
+     * If the reader gives an empty line, the number `0` is returned.
+     *
+     * @param trace interpreter stack trace
+     * @returns new bubble with the value
+     */
     async readRaw(trace) {
         trace.push('InOut.read');
         let line = await this.stdin.read();
@@ -344,11 +512,24 @@ class InOut {
     }
 }
 
+/**
+ * Provide functions to move bubbles around.
+ */
 class Abysser {
+    /**
+     * @param abyss the interpreter state stack
+     */
     constructor(abyss) {
         this.abyss = abyss;
     }
 
+    /**
+     * Move a bubble down the stack according to input.
+     *
+     * @param trace interpreter stack trace
+     * @param input how many positions to move down
+     * @returns null
+     */
     submerge(trace, input) {
         trace.push('Abysser.submerge');
         const value = this.abyss.pop();
@@ -364,6 +545,15 @@ class Abysser {
         return null;
     }
 
+    /**
+     * Remove or split a bubble.
+     *
+     * The split happens only if the bubble has more than one value.
+     *
+     * @param trace interpreter stack trace
+     * @param input the bubble to pop
+     * @returns null or an array of bubbles to push into the abyss
+     */
     pop(trace, input) {
         trace.push('Abysser.pop');
         if (false === input.isDouble()) {
@@ -379,6 +569,13 @@ class Abysser {
         return bubbles;
     }
 
+    /**
+     * Clone the given bubble and push both into the abyss.
+     *
+     * @param trace interpreter stack trace
+     * @param input the bubble to clone
+     * @returns array of bubbles to push into the abyss
+     */
     duplicate(trace, input) {
         trace.push('Abysser.duplicate');
         const bubbles = [input, input.clone()];
@@ -387,6 +584,13 @@ class Abysser {
         return bubbles;
     }
 
+    /**
+     * Create a single bubble from multiple ones.
+     *
+     * @param trace interpreter stack trace
+     * @param input how many bubble to take from the abyss
+     * @returns the new bubble
+     */
     surround(trace, input) {
         trace.push('Abysser.surround');
         const bubble = new Bubble();
@@ -399,6 +603,14 @@ class Abysser {
         return bubble;
     }
 
+    /**
+     * Create one bubble from the two topmost bubbles.
+     *
+     * @param trace interpreter stack trace
+     * @param b1 the first bubble
+     * @param b2 the second bubble
+     * @returns the merged bubble
+     */
     merge(trace, b1, b2) {
         trace.push('Abysser.merge');
         const bubble = b1;
@@ -418,7 +630,18 @@ class Abysser {
     }
 }
 
+/**
+ * Provide basic arithmetic functions on bubbles.
+ */
 class Arith {
+    /**
+     * Add two bubbles.
+     *
+     * @param trace interpreter stack trace
+     * @param b1 the first bubble
+     * @param b2 the second bubble
+     * @returns a new bubble with the result
+     */
     static add(trace, b1, b2) {
         trace.push('Arith.add');
         let result = null;
@@ -451,6 +674,14 @@ class Arith {
         return result;
     }
 
+    /**
+     * Subtract two bubbles.
+     *
+     * @param trace interpreter stack trace
+     * @param b1 the first bubble
+     * @param b2 the second bubble
+     * @returns a new bubble with the result
+     */
     static sub(trace, b1, b2) {
         trace.push('Arith.sub');
         let result = null;
@@ -483,6 +714,14 @@ class Arith {
         return result;
     }
 
+    /**
+     * Multiply two bubbles.
+     *
+     * @param trace interpreter stack trace
+     * @param b1 the first bubble
+     * @param b2 the second bubble
+     * @returns a new bubble with the result
+     */
     static mul(trace, b1, b2) {
         trace.push('Arith.mul');
         let result = null;
@@ -515,6 +754,17 @@ class Arith {
         return result;
     }
 
+    /**
+     * Divide two bubbles and keep the remainder.
+     *
+     * The result will be a double bubble that can contain other
+     * double bubbles.
+     *
+     * @param trace interpreter stack trace
+     * @param b1 the first bubble
+     * @param b2 the second bubble
+     * @returns a new bubble with the result
+     */
     static div(trace, b1, b2) {
         trace.push('Arith.div');
         let result = null;
@@ -547,6 +797,14 @@ class Arith {
         return result;
     }
 
+    /**
+     * Calculate the division and the remainder of two bubbles.
+     *
+     * @param trace interpreter stack trace
+     * @param v1 the first value
+     * @param v2 the second value
+     * @return array with remainder and division, in this order
+     */
     static bubblediv(trace, v1, v2) {
         trace.push('Arith.bubblediv');
         let division = v1 / v2;
@@ -559,7 +817,20 @@ class Arith {
     }
 }
 
+/**
+ * Provide function to compare two bubbles.
+ */
 class Comparator {
+    /**
+     * Test for bubble equality.
+     *
+     * Double bubbles are compared in every contained value.
+     *
+     * @param trace interpreter stack trace
+     * @param b1 the first bubble
+     * @param b2 the second bubble
+     * @returns false if the bubbles are different
+     */
     static equal(trace, b1, b2) {
         trace.push('Comparator.equal');
         let result = false;
@@ -598,6 +869,16 @@ class Comparator {
         return result;
     }
 
+    /**
+     * Test whether the first bubble is smaller than the second.
+     *
+     * This test applies only to single bubbles.
+     *
+     * @param trace interpreter stack trace
+     * @param b1 the first bubble
+     * @param b2 the second bubble
+     * @returns false if the bubble is greater
+     */
     static less(trace, b1, b2) {
         trace.push('Comparator.less');
         let result = false;
@@ -614,6 +895,16 @@ class Comparator {
         return result;
     }
 
+    /**
+     * Test whether the first bubble is greater than the second.
+     *
+     * This test applies only to single bubbles.
+     *
+     * @param trace interpreter stack trace
+     * @param b1 the first bubble
+     * @param b2 the second bubble
+     * @returns false if the bubble is smaller
+     */
     static greater(trace, b1, b2) {
         trace.push('Comparator.greater');
         let result = false;
@@ -630,6 +921,16 @@ class Comparator {
         return result;
     }
 
+    /**
+     * Test whether a bubble is exactly the value 0.
+     *
+     * A double bubble with only zero values does not pass this test;
+     * it has to be a single bubble.
+     *
+     * @param trace interpreter stack trace
+     * @param b1 the bubble to test
+     * @returns false if the bubble is not the value 0.
+     */
     static zero(trace, b1) {
         trace.push('Comparator.zero');
         let result = false;
@@ -644,6 +945,20 @@ class Comparator {
     }
 };
 
+/**
+ * Iterate over a sequence of tokens and perform associated actions.
+ *
+ * This interpreter has a fixed limit of 10000 (ten thousand)
+ * operations; when exceeded the interpreter will terminate with an
+ * error.
+ *
+ * @param trace the interpreter stack trace
+ * @param abyss the interpreter state stack
+ * @param tokens the sequence of tokens
+ * @param stdin an input reader
+ * @param stdout an output writer
+ * @returns the value of the topmost bubble, 0 by default
+ */
 const interpreter = async function (trace, abyss, tokens, stdin, stdout) {
     trace.push('interpreter');
 
@@ -883,28 +1198,67 @@ const interpreter = async function (trace, abyss, tokens, stdin, stdout) {
     return retval;
 };
 
+/**
+ * Input reader backed by an array.
+ */
 class ArrayReader {
+    /**
+     * @param backing the array to read from
+     */
     constructor(backing) {
         this.backing = [...backing];
         this.line = -1;
     }
 
+    /**
+     * Return a string from the backing array.
+     *
+     * @returns a string, can be empty
+     */
     async read() {
         this.line = this.line + 1;
         return (undefined === this.backing[this.line]) ? '' : this.backing[this.line];
     }
 
+    /**
+     * Reset the reader to read from the first line again.
+     *
+     * @returns this
+     */
     reset() {
         this.line = -1;
+        return this;
     }
 };
 
+/**
+ * Input reader able to wait from users.
+ *
+ * This reader takes its lines from a DOM node, which can be an actual
+ * user interface where users can write in freely.
+ *
+ * To ensure users are actually able to type in something, this
+ * function will suspend the interpreter until a second DOM node is
+ * activated with a `click` event.
+ *
+ * The DOM node must support the `value` property, effectively
+ * limiting it only to `<input>` and `<textarea>` elements.
+ */
 class DOMReader {
+    /**
+     * @param node the node to read from
+     * @param actor the node restarting the interpreter
+     */
     constructor(node, actor) {
         this.backing = node;
         this.button = actor;
     }
 
+    /**
+     * Return a string from the backing DOM node.
+     *
+     * @returns a string, can be empty
+     */
     async read() {
         let listener = null;
         let promise = new Promise((resolve, reject) => {
@@ -921,22 +1275,53 @@ class DOMReader {
         return value;
     }
 
+    /**
+     * Reset the reader to read from the first line again.
+     *
+     * @returns this
+     */
     reset() {
         // nothing to reset, but it keeps the interface uniform
+        return this;
     }
 };
 
+/**
+ * Output writer backed by an array.
+ */
 class ArrayWriter {
+    /**
+     * @param backing the array to write to
+     */
     constructor(backing) {
         this.backing = backing;
     }
 
+    /**
+     * Write (push) a line inside the backing array.
+     *
+     * @param line the line to push
+     * @returns this
+     */
     write(line) {
         this.backing.push(line);
+        return this;
     }
 };
 
+/**
+ * Output writer backed by a DOM node.
+ *
+ * This writer will try to append some text to the specified DOM node.
+ *
+ * Not every DOM node is suitable: only `<input type="text">`, `<textarea>`,
+ * `<div>`, `<span>`, `<p>` and `<pre>` are supported.
+ */
 class DOMWriter {
+    /**
+     * @param node the node to write to
+     * @throws a type error if the DOM node is not supported
+     */
     constructor(node) {
         const tag = node.tagName.toLowerCase();
 
@@ -959,6 +1344,12 @@ class DOMWriter {
         this.backing = node;
     }
 
+    /**
+     * Write (append) a line inside the backing DOM node.
+     *
+     * @param line the line to push
+     * @returns this
+     */
     write(line) {
         if (0 === line.length) {
             return;
@@ -974,9 +1365,14 @@ class DOMWriter {
             this.backing.innerHTML += towrite;
             break;
         }
+
+        return this;
     }
 };
 
+/**
+ * Implentation of an interpreter for the AWA5.0 language.
+ */
 export default class AWA5 {
     constructor() {
         // global stack
@@ -992,6 +1388,12 @@ export default class AWA5 {
         this.output = new ArrayWriter([]);
     }
 
+    /**
+     * Start the interpreter and execute the given input.
+     *
+     * @param input the input string
+     * @returns the last value generated by the interpreter
+     */
     async run(input) {
         try {
             const tokens = parser(this.trace, input);
@@ -1007,6 +1409,12 @@ export default class AWA5 {
         }
     }
 
+    /**
+     * Set the input reader to the given object.
+     *
+     * @param reader an input reader
+     * @returns this
+     */
     setInputReader(reader) {
         if (false === reader instanceof ArrayReader && false === reader instanceof DOMReader) {
             throw new TypeError('not a valid reader');
@@ -1016,6 +1424,12 @@ export default class AWA5 {
         return this;
     }
 
+    /**
+     * Set the output writer to the given object.
+     *
+     * @param reader an output writer
+     * @returns this
+     */
     setOutputWriter(writer) {
         if (false === writer instanceof ArrayWriter && false === writer instanceof DOMWriter) {
             throw new TypeError('not a valid reader');
@@ -1025,6 +1439,20 @@ export default class AWA5 {
         return this;
     }
 
+    /**
+     * Create an input reader based on the given options, if present.
+     *
+     * Options are an object with two possible format: if the `buffer`
+     * property is present, the reader will be backed by the
+     * associated array; if `node` and `actor` are present, the reader
+     * will be backed by a DOM node.
+     *
+     * If all possible options are present, array-backed readers are
+     * given priority.
+     *
+     * @param options the reader options
+     * @returns an input reader
+     */
     static reader(options) {
         if (!options || 'object' !== typeof options) {
             return new ArrayReader([]);
@@ -1045,6 +1473,20 @@ export default class AWA5 {
         return new ArrayReader([]);
     }
 
+    /**
+     * Create an output writer based on the given options, if present.
+     *
+     * Options are an object with two possible format: if the `buffer`
+     * property is present, the writer will be backed by the
+     * associated array; if `node` is present, the writer will be
+     * backed by a DOM node.
+     *
+     * If all possible options are present, array-backed writers are
+     * given priority.
+     *
+     * @param options the writer options
+     * @returns an output writer
+     */
     static writer(options) {
         if (!options || 'object' !== typeof options) {
             return new ArrayWriter([]);
