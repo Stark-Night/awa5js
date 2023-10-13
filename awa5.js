@@ -1257,6 +1257,13 @@ class DOMReader {
     /**
      * Return a string from the backing DOM node.
      *
+     * Before reading begins, this method will generate an event
+     * called `awa5:prompt`; after the value has been received, it
+     * will generated an event called `awa5:processing`.
+     *
+     * These events can be used to manipulate a user interface or
+     * similar actions.
+     *
      * @returns a string, can be empty
      */
     async read() {
@@ -1267,8 +1274,27 @@ class DOMReader {
             this.button.addEventListener('click', listener);
         });
 
+        const prompt = new CustomEvent('awa5:prompt', {
+            bubbles: true,
+            detail: {
+                node: this.backing,
+                actor: this.button,
+            }
+        });
+        this.backing.dispatchEvent(prompt);
+
         // "block" the script/interpreter until the click listener on actor/button is executed
         const value = await promise;
+
+        const processing = new CustomEvent('awa5:processing', {
+            bubbles: true,
+            detail: {
+                node: this.backing,
+                actor: this.button,
+                value: value,
+            },
+        });
+        this.backing.dispatchEvent(processing);
 
         this.button.removeEventListener('click', listener);
 
